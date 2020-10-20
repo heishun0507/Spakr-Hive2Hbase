@@ -23,20 +23,19 @@ object SparkWriterInHbase {
       .enableHiveSupport()
       .getOrCreate()
 
-//    val frame: DataFrame = sparksession.sql("select * from sion.sc")
+    //    val frame: DataFrame = sparksession.sql("select * from sion.sc")
+    //    val dataRdd: RDD[(Integer, (String, String, Integer))] = frame.rdd.flatMap(row => {
+    //      val rowkey = row.getAs[Integer]("sid".toLowerCase)
+    //      Array(
+    //        (rowkey, ("info", "sid", row.getAs[Integer]("sid".toLowerCase))),
+    //        (rowkey, ("info", "cid", row.getAs[Integer]("cid".toLowerCase))),
+    //        (rowkey, ("info", "score", row.getAs[Integer]("score".toLowerCase)))
+    //
+    //      )
+    //    })
+    //    dataRdd.foreach(println(_))
 
-//    val dataRdd = frame.rdd.flatMap(row => {
-//      val rowkey = row.getAs[Integer]("sid".toLowerCase)
-//      Array(
-//        (rowkey, ("cf", "sid", row.getAs[Integer]("sid".toLowerCase))),
-//        (rowkey, ("cf", "cid", row.getAs[Integer]("cid".toLowerCase))),
-//        (rowkey, ("cf", "score", row.getAs[Integer]("score".toLowerCase)))
-//
-//      )
-//    })
-//    dataRdd.foreach(println(_))
-
-        saveAsHadoopDatasetDef(sparksession)
+    saveAsHadoopDatasetDef(sparksession)
     //    saveAsNewAPIHadoopDatasetDef(sparksession)
 
 
@@ -50,7 +49,7 @@ object SparkWriterInHbase {
     conf.set("hbase.zookeeper.quorum", "192.168.52.100,192.168.52.110")
     //设置zookeeper连接端口，默认2181
     conf.set("hbase.zookeeper.property.clientPort", "2181")
-    //表名
+    //Hbase表名
     val tablename = "student"
 
     //初始化jobconf，TableOutputFormat必须是org.apache.hadoop.hbase.mapred包下的！
@@ -71,17 +70,20 @@ object SparkWriterInHbase {
     //      (new ImmutableBytesWritable, put)
     //    }
     //    }
-    val frame: DataFrame = sparksession.sql("select * from sion.sc")
-//    +---------+---------+-----------+--+
-//    | sc.sid  | sc.cid  | sc.score  |
-//      +---------+---------+-----------+--+
-//    | 1       | 1       | 80        |
-//     | 2       | 1       | 70        |
-//     | 3       | 1       | 80        |
-//     | 4       | 1       | 50        |
-//     | 6       | 3       | 34        |
-//     | 7       | 2       | 89        |
-    val dataRdd = frame.rdd.flatMap(row => {
+    val HiveDF: DataFrame = sparksession.sql("select * from sion.sc")
+    //    +---------+---------+-----------+--+
+    //    | sc.sid  | sc.cid  | sc.score  |
+    //      +---------+---------+-----------+--+
+    //    | 1       | 1       | 80        |
+    //     | 2       | 1       | 70        |
+    //     | 3       | 1       | 80        |
+    //     | 4       | 1       | 50        |
+    //     | 6       | 3       | 34        |
+    //     | 7       | 2       | 89        |
+
+    //提取表数据
+    val dataRdd: RDD[(String, String, String, String)] = HiveDF.rdd.flatMap(row => {
+
       val rowkey = Integer.toString(row.getAs[Integer]("sid".toLowerCase))
       Array(
         (rowkey, "info", "sid", Integer.toString(row.getAs[Integer]("sid".toLowerCase))),
@@ -90,6 +92,7 @@ object SparkWriterInHbase {
 
       )
     })
+    //封装成Hfile格式
     val rdd: RDD[(ImmutableBytesWritable, Put)] = dataRdd.map { arr => {
       val put = new Put(Bytes.toBytes(arr._1)) //行健的值rowkey
       put.addColumn(Bytes.toBytes(arr._2), Bytes.toBytes(arr._3), Bytes.toBytes(arr._4)) //info:name列的值
@@ -97,6 +100,7 @@ object SparkWriterInHbase {
       (new ImmutableBytesWritable, put)
     }
     }
+    //执行保存
     rdd.saveAsHadoopDataset(jobConf)
     sc.stop()
   }
@@ -113,6 +117,7 @@ object SparkWriterInHbase {
     job.setOutputKeyClass(classOf[ImmutableBytesWritable])
     job.setOutputValueClass(classOf[Result])
     job.setOutputFormatClass(classOf[org.apache.hadoop.hbase.mapreduce.TableOutputFormat[ImmutableBytesWritable]])
+
     val indataRDD = sc.makeRDD(Array("1,shuxue,N,15", "2,yuwen,N,16"))
     val rdd = indataRDD.map(_.split(',')).map { arr => {
 
