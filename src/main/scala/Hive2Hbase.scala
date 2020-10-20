@@ -9,7 +9,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-object SparkWriterInHbase {
+object Hive2Hbase {
 
   def main(args: Array[String]): Unit = {
     //创建sparkConf
